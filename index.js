@@ -1,4 +1,7 @@
+const express = require('express');
 const inquirer = require('inquirer');
+const cTable = require('console.table');
+const db = require('./db/connection');
 
 const promptUser = () => {
     return inquirer.prompt([
@@ -21,23 +24,42 @@ const promptUser = () => {
     ])
     .then(choiceData => {
         if (choiceData.userChoice === "View All Departments") {
-            viewDepartments()
-            promptUser()
-        } else if (choiceData.userChoice === "End Session") {
-            return;
+            viewDepartments();
+            return promptUser();    
+        } else if (choiceData.userChoice === "View All Roles") {
+            viewRoles();
+            return promptUser();
+        } else if (choiceData.userChoice === "View All Employees") {
+            viewEmployees();
+            return promptUser();
         }
     })
 };
 
 const viewDepartments = () => {
-    return console.log("Here are the department:");
-    // present a formatted table showing:
-    // department names
-    // department ids
+    db.execute(
+        'SELECT dep_id AS ID, dep_name AS name FROM departments',
+        (err, res) => {
+            if (err) throw err;
+            console.log("");
+            console.log("=========================")
+            console.log("DEPARTMENTS")
+            return console.table(res);
+        }
+    )
 };
 
 const viewRoles = () => {
-    return console.log("Here are the roles:");
+    db.execute(
+        'SELECT roles.role_id AS ID, roles.role_title AS TITLE, roles.role_salary AS SALARY, departments.dep_name AS DEPARTMENT FROM roles INNER JOIN departments ON roles.department_id=departments.dep_id',
+        (err, res) => {
+            if (err) throw err;
+            console.log("");
+            console.log("=========================")
+            console.log("ROLES");
+            return console.table(res);
+        }
+    )
 // presented a formatted tabled showing:
     // job title
     // role id
@@ -46,7 +68,16 @@ const viewRoles = () => {
 };
 
 const viewEmployees = () => {
-    return console.log("Here are the employees:");
+    db.execute(
+        'SELECT employees.emp_id AS ID, employees.first_name AS FIRST, employees.last_name AS LAST, roles.role_title AS TITLE FROM employees JOIN roles ON employees.emp_role=roles.role_id',
+        (err, res) => {
+            if (err) throw err;
+            console.log("");
+            console.log("=========================");
+            console.log("EMPLOYEES");
+            return console.table(res);
+        }
+    )
 // presented a formatted table with the following
     // employee ids
     // first names
@@ -86,4 +117,8 @@ const updateEmployeeRole = () => {
 // then this information is updated in the DB
 };
 
-promptUser();
+promptUser()
+    // .then(() => {
+    //     throw console.log("Session has ended.");
+    // });
+
