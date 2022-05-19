@@ -69,7 +69,7 @@ const viewRoles = () => {
 
 const viewEmployees = () => {
     db.execute(
-        'SELECT employees.emp_id AS ID, employees.first_name AS FIRST, employees.last_name AS LAST, roles.role_title AS TITLE FROM employees JOIN roles ON employees.emp_role=roles.role_id',
+        'SELECT e.emp_id AS ID, e.first_name AS FIRST, e.last_name AS LAST, roles.role_title AS TITLE, departments.dep_name AS DEPARTMENT, m.first_name AS MANAGER FROM employees e JOIN roles ON e.emp_role=roles.role_id JOIN departments ON roles.department_id=departments.dep_id LEFT JOIN employees m ON m.emp_id=e.manager_id ORDER BY e.emp_id',
         (err, res) => {
             if (err) throw err;
             console.log("");
@@ -88,21 +88,45 @@ const viewEmployees = () => {
     // employees' manager
 };
 
-const addDepartment = () => {
-    return console.log("TEMPLATE LITERAL department was added to departments.");
+const addDepartment = (deptName) => {
+    db.execute(
+        `INSERT INTO departments(dep_name) VALUES ("${deptName}");`,
+        (err, res) => {
+            if (err) throw err;
+            console.log("");
+            console.log("=========================");
+            return console.log(`${deptName} added to Departments!`);
+        }
+    )
 // enter name of dept and it is added to DB
 };
 
-const addRole = () => {
-    return console.log("TEMPLATE LITERAL was added to roles.");
+const addRole = (roleTitle, roleSalary, departmentId) => {
+    db.execute(
+        `INSERT INTO roles(role_title, role_salary, department_id) VALUES (${roleTitle},${roleSalary},${departmentId});`,
+        (err, res) => {
+            if (err) throw err;
+            console.log("");
+            console.log("=========================");
+            return console.log(`${roleTitle} added to Roles!`);
+        }
+    )
 // enter the following and it is added to DB
     // job title
     // salary
     // department
 };
 
-const addEmployee = () => {
-    return console.log("TEMPLATE LITERAL was added to employees.");
+const addEmployee = (firstName, lastName, empRole, managerId) => {
+    db.execute(
+        `INSERT INTO employees(first_name, last_name, emp_role, manager_id) VALUES (${firstName},${lastName},${empRole},${managerId});`,
+        (err, res) => {
+            if (err) throw err;
+            console.log("");
+            console.log("=========================");
+            return console.log(`${firstName} ${lastName} added to Employees!`);
+        }
+    )
 // enter the follow and it is entered to the DB
     // first name
     // last name
@@ -110,8 +134,19 @@ const addEmployee = () => {
     // manager
 };
 
-const updateEmployeeRole = () => {
-    return console.log("TEMPLATE LITERAL's employee records were updated.");
+const updateEmployeeRole = (empFullName, empRole) => {
+    const index = empFullName.indexOf(" ");
+    const firstName =empFullName.slice(0,index); 
+    const lastName = empFullName.slice(index+1,empFullName.length);
+    db.execute(
+        `UPDATE employees SET emp_role=${empRole} WHERE first_name=${firstName};`,
+        (err, res) => {
+            if (err) throw err;
+            console.log("");
+            console.log("=========================");
+            return console.log(`${firstName} ${lastName} added to Employees!`);
+        }
+    )
 // prompted to select employee
 // find their new role 
 // then this information is updated in the DB
