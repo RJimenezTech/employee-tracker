@@ -2,6 +2,8 @@ const express = require('express');
 const inquirer = require('inquirer');
 const cTable = require('console.table');
 const db = require('./db/connection');
+db.connect();
+const { append } = require('express/lib/response');
 
 const promptUser = () => {
     return inquirer.prompt([
@@ -25,16 +27,90 @@ const promptUser = () => {
     .then(choiceData => {
         if (choiceData.userChoice === "View All Departments") {
             viewDepartments();
-            return promptUser();    
+ 
         } else if (choiceData.userChoice === "View All Roles") {
             viewRoles();
-            return promptUser();
+
         } else if (choiceData.userChoice === "View All Employees") {
             viewEmployees();
-            return promptUser();
+
+        } else if (choiceData.userChoice === "Add a Department") {
+            promptAddDepartment();
+        } else if (choiceData.userChoice === "Add a Role") {
+            promptAddRole();
         }
     })
 };
+
+const promptAddDepartment = () => {
+    return inquirer.prompt([
+        {
+            type: "input",
+            name: "departmentInput",
+            message: "What is the name of the department?",
+        }
+    ])
+    .then(departmentData => {
+        addDepartment(departmentData.departmentInput);
+    })
+};
+
+const promptAddRole = () => {
+    let departmentsArray = [];
+    db.query(`SELECT * FROM departments`, (err, res) => {
+        if (err) throw err;
+        res.forEach(dep => {
+            departmentsArray.push(dep.dep_name);
+        })
+        return;
+    });
+
+    return inquirer.prompt([
+        {
+            type: "input",
+            name: "roleName",
+            message: "What is the name of the role?",
+            validate: (roleName) => {
+                if (!roleName) {
+                    console.log("Must enter a role name!")
+                    return false;
+                } else return true;
+            }
+        },
+        {
+            type: "input",
+            name: "roleSalary",
+            message: "What is the salary of the role?",
+            validate: (roleSalary) => {
+                if (!roleSalary) {
+                    console.log("Must enter salary!")
+                    return false;
+                }
+                if (typeof roleSalary !== 'number') {
+                    return true;
+                } else {
+                    console.log("Salary must be a number!")
+                    return false;
+                }
+            }
+        },
+        {
+            type: "list",
+            name: "roleDepartment",
+            message: "What department does the role belong to?",
+            choices: departmentsArray,
+            validate: (roleDepartment) => {
+                if (!roleDepartment) {
+                    console.log("Must enter a role department!")
+                    return false;
+                }
+            }
+        }
+    ])
+    .then(roleData => {
+        addRole(roleData.roleName, roleData.roleSalary, roleData.roleDepartment);
+    })
+}
 
 const viewDepartments = () => {
     db.execute(
@@ -44,7 +120,8 @@ const viewDepartments = () => {
             console.log("");
             console.log("=========================")
             console.log("DEPARTMENTS")
-            return console.table(res);
+            console.table(res);
+            return promptUser();
         }
     )
 };
@@ -57,7 +134,8 @@ const viewRoles = () => {
             console.log("");
             console.log("=========================")
             console.log("ROLES");
-            return console.table(res);
+            console.table(res);
+            return promptUser();
         }
     )
 // presented a formatted tabled showing:
@@ -75,7 +153,8 @@ const viewEmployees = () => {
             console.log("");
             console.log("=========================");
             console.log("EMPLOYEES");
-            return console.table(res);
+            console.table(res);
+            return promptUser();
         }
     )
 // presented a formatted table with the following
@@ -93,38 +172,41 @@ const addDepartment = (deptName) => {
         `INSERT INTO departments(dep_name) VALUES ("${deptName}");`,
         (err, res) => {
             if (err) throw err;
-            console.log("");
+            console.log(`${deptName} added to Departments!`);
             console.log("=========================");
-            return console.log(`${deptName} added to Departments!`);
+            return promptUser();
         }
     )
 // enter name of dept and it is added to DB
 };
 
-const addRole = (roleTitle, roleSalary, departmentId) => {
-    db.execute(
-        `INSERT INTO roles(role_title, role_salary, department_id) VALUES (${roleTitle},${roleSalary},${departmentId});`,
-        (err, res) => {
+const addRole = (roleTitle, roleSalary, departmentName) => {
+    let departmentId = "";
+    db.execute(`SELECT dep_id FROM departments WHERE dep_name="${departmentName}"`, 
+    (err, res) => {
+        if (err) throw err;
+        departmentId = res[0].dep_id;
+        console.log(departmentId + " is here");
+        const sql = `INSERT INTO roles(role_title, role_salary, department_id) VALUES ("${roleTitle}",${roleSalary},${departmentId})`; 
+        db.execute(sql, (err, res) => {
             if (err) throw err;
-            console.log("");
+            console.log(`${roleTitle} added to Roles in ${departmentName} department!`);
             console.log("=========================");
-            return console.log(`${roleTitle} added to Roles!`);
-        }
-    )
-// enter the following and it is added to DB
-    // job title
-    // salary
-    // department
+            return promptUser();
+        })
+    })       
 };
 
-const addEmployee = (firstName, lastName, empRole, managerId) => {
+const addEmployee = (firstName, lastName, empRole, managerName) => {
+    // find manager id from manager name
+    // const managerId = ...
     db.execute(
         `INSERT INTO employees(first_name, last_name, emp_role, manager_id) VALUES (${firstName},${lastName},${empRole},${managerId});`,
         (err, res) => {
             if (err) throw err;
-            console.log("");
+            console.log(`${firstName} ${lastName} added to Employees!`);
             console.log("=========================");
-            return console.log(`${firstName} ${lastName} added to Employees!`);
+            return promptUser();
         }
     )
 // enter the follow and it is entered to the DB
@@ -134,7 +216,7 @@ const addEmployee = (firstName, lastName, empRole, managerId) => {
     // manager
 };
 
-const updateEmployeeRole = (empFullName, empRole) => {
+const updateEmployeeRole = (empFullName, empRole,) => {
     const index = empFullName.indexOf(" ");
     const firstName =empFullName.slice(0,index); 
     const lastName = empFullName.slice(index+1,empFullName.length);
@@ -144,7 +226,8 @@ const updateEmployeeRole = (empFullName, empRole) => {
             if (err) throw err;
             console.log("");
             console.log("=========================");
-            return console.log(`${firstName} ${lastName} added to Employees!`);
+            console.log(`${firstName} ${lastName} added to Employees!`);
+            return promptUser();
         }
     )
 // prompted to select employee
@@ -152,8 +235,7 @@ const updateEmployeeRole = (empFullName, empRole) => {
 // then this information is updated in the DB
 };
 
-promptUser()
-    // .then(() => {
-    //     throw console.log("Session has ended.");
-    // });
+promptUser();
+
+
 
