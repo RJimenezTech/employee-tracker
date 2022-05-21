@@ -2,8 +2,30 @@ const express = require('express');
 const inquirer = require('inquirer');
 const cTable = require('console.table');
 const db = require('./db/connection');
-db.connect();
+
 const { append } = require('express/lib/response');
+const { end } = require('./db/connection');
+
+let rolesArray = [];
+let departmentsArray = [];
+let employeesArray = [];
+
+db.connect( err => {
+    if (err) {
+        console.log("error connecting - " + err.message);
+        return;
+    }
+    db.query(`SELECT * FROM roles`, (err , res) => {
+        rolesArray = res.map(role => ({name: role.role_title, value: role.role_id}))
+    });
+    db.query(`SELECT * FROM departments`, (err, res) => {
+        departmentsArray = res.map(dep => ({name: dep.dep_name, value: dep.dep_id}))
+    });
+    db.query(`SELECT * FROM employees`, (err, res) => {
+        employeesArray = res.map(emp => ({name: `${emp.first_name} ${emp.last_name}`, value: emp.emp_id}))
+    });
+    promptUser();
+});
 
 const promptUser = () => {
     return inquirer.prompt([
@@ -27,27 +49,33 @@ const promptUser = () => {
     .then(choiceData => {
         if (choiceData.userChoice === "View All Departments") {
             viewDepartments();
- 
         } else if (choiceData.userChoice === "View All Roles") {
             viewRoles();
-
         } else if (choiceData.userChoice === "View All Employees") {
             viewEmployees();
-
         } else if (choiceData.userChoice === "Add a Department") {
             promptAddDepartment();
         } else if (choiceData.userChoice === "Add a Role") {
             promptAddRole();
+        } else if (choiceData.userChoice === "Add an Employee"){
+            promptAddEmployee();
+        } else if (choiceData.userChoice === "Update an Employee"){
+            promptUpdateEmployee();
+        } else {
+            db.end();
+            console.log("Session has ended!");
+            process.exit();
         }
     })
 };
 
 const promptAddDepartment = () => {
-    return inquirer.prompt([
+    inquirer
+        .prompt([
         {
             type: "input",
             name: "departmentInput",
-            message: "What is the name of the department?",
+            message: "What is the name of the new department?",
         }
     ])
     .then(departmentData => {
@@ -55,61 +83,132 @@ const promptAddDepartment = () => {
     })
 };
 
-const promptAddRole = () => {
-    let departmentsArray = [];
-    db.query(`SELECT * FROM departments`, (err, res) => {
+const addDepartment = (deptName) => {
+    db.execute(
+        `INSERT INTO departments(dep_name) VALUES (?);`,[deptName],
+        (err, res) => {
+            if (err) throw err;
+            console.log(`${deptName} added to Departments!`);
+            console.log("=========================");
+            promptUser();
+        }
+    )
+};
+const addRole = (roleTitle, roleSalary, department) => {
+    const sql = `INSERT INTO roles(role_title, role_salary, department_id) VALUES (?,?,?)`;
+    const params = [roleTitle, roleSalary, department]
+    db.query(sql, params, (err, res) => {
         if (err) throw err;
-        res.forEach(dep => {
-            departmentsArray.push(dep.dep_name);
-        })
-        return;
-    });
-
-    return inquirer.prompt([
+        console.log(`${roleTitle} added to Roles!`);
+        console.log("=========================");
+        promptUser();    
+    })
+      
+};
+const promptAddRole = () => {
+    inquirer
+        .prompt([
         {
             type: "input",
             name: "roleName",
             message: "What is the name of the role?",
-            validate: (roleName) => {
-                if (!roleName) {
-                    console.log("Must enter a role name!")
-                    return false;
-                } else return true;
-            }
         },
         {
             type: "input",
             name: "roleSalary",
             message: "What is the salary of the role?",
-            validate: (roleSalary) => {
-                if (!roleSalary) {
-                    console.log("Must enter salary!")
-                    return false;
-                }
-                if (typeof roleSalary !== 'number') {
-                    return true;
-                } else {
-                    console.log("Salary must be a number!")
-                    return false;
-                }
-            }
         },
         {
             type: "list",
             name: "roleDepartment",
             message: "What department does the role belong to?",
-            choices: departmentsArray,
-            validate: (roleDepartment) => {
-                if (!roleDepartment) {
-                    console.log("Must enter a role department!")
-                    return false;
-                }
-            }
+            choices: departmentsArray
         }
     ])
     .then(roleData => {
         addRole(roleData.roleName, roleData.roleSalary, roleData.roleDepartment);
     })
+};
+
+
+
+const addEmployee = (firstName, lastName, roleId, manager_id) => {
+    const sql = `INSERT INTO employees(first_name, last_name,emp_role, manager_id) VALUES (?,?,?,?)`;
+    const params = [firstName,lastName,roleId,manager_id]
+    db.execute(sql, params,(err, res) => {
+        if (err) throw err; 
+        console.log(`${firstName} ${lastName} was added to employees!`);
+        promptUser();
+    });
+    
+};
+const promptAddEmployee = () => {  
+    inquirer
+        .prompt([
+            {
+                type: "input",
+                name: "firstName",
+                message: "What is the employee's first name?",
+            },
+            {
+                type: "input",
+                name: "lastName",
+                message: "What is the employee's last name?",
+            },
+            {
+                type: "list",
+                name: "roleTitle",
+                message: "What is the employee's title?",
+                choices: rolesArray
+            },
+            {
+                type: "list",
+                name: "manager",
+                message: "Who is the employee's manager?",
+                choices: employeesArray
+            }
+        ])
+        .then(empData => {
+            console.log(empData.roleTitle)
+            console.log(empData.manager)
+            addEmployee(empData.firstName, empData.lastName, empData.roleTitle, empData.manager);
+        })
+};
+
+const updateEmployeeRole = (empId, role_id) => {
+    db.execute(
+        `UPDATE employees SET emp_role=? WHERE emp_id=?;`,
+        [role_id, empId],
+        (err, res) => {
+            if (err) throw err;
+            console.log("");
+            console.log("=========================");
+            console.log(`Employee role update!`);
+            promptUser();
+        }
+    )
+    
+};
+
+const promptUpdateEmployee = () => {
+    inquirer.prompt([
+        {
+            type: "list",
+            name: "employeeName",
+            message: "Which employee do you want to update?",
+            choices: employeesArray
+        },
+        {
+            type: "list",
+            name: "role",
+            message: "What is the employee's new role?",
+            choices: rolesArray
+        }
+    ])
+    .then(updateData => {
+        updateEmployeeRole(updateData.employeeName, updateData.role);
+    })
+
 }
 
 const viewDepartments = () => {
@@ -121,9 +220,10 @@ const viewDepartments = () => {
             console.log("=========================")
             console.log("DEPARTMENTS")
             console.table(res);
-            return promptUser();
+            promptUser();
         }
     )
+    
 };
 
 const viewRoles = () => {
@@ -135,14 +235,10 @@ const viewRoles = () => {
             console.log("=========================")
             console.log("ROLES");
             console.table(res);
-            return promptUser();
+            promptUser();
         }
     )
-// presented a formatted tabled showing:
-    // job title
-    // role id
-    // department the role belongs to
-    // salaray for that role
+    
 };
 
 const viewEmployees = () => {
@@ -154,88 +250,8 @@ const viewEmployees = () => {
             console.log("=========================");
             console.log("EMPLOYEES");
             console.table(res);
-            return promptUser();
+            promptUser();
         }
     )
-// presented a formatted table with the following
-    // employee ids
-    // first names
-    // last names
-    // job titles
-    // departments
-    // salaries
-    // employees' manager
+    
 };
-
-const addDepartment = (deptName) => {
-    db.execute(
-        `INSERT INTO departments(dep_name) VALUES ("${deptName}");`,
-        (err, res) => {
-            if (err) throw err;
-            console.log(`${deptName} added to Departments!`);
-            console.log("=========================");
-            return promptUser();
-        }
-    )
-// enter name of dept and it is added to DB
-};
-
-const addRole = (roleTitle, roleSalary, departmentName) => {
-    let departmentId = "";
-    db.execute(`SELECT dep_id FROM departments WHERE dep_name="${departmentName}"`, 
-    (err, res) => {
-        if (err) throw err;
-        departmentId = res[0].dep_id;
-        console.log(departmentId + " is here");
-        const sql = `INSERT INTO roles(role_title, role_salary, department_id) VALUES ("${roleTitle}",${roleSalary},${departmentId})`; 
-        db.execute(sql, (err, res) => {
-            if (err) throw err;
-            console.log(`${roleTitle} added to Roles in ${departmentName} department!`);
-            console.log("=========================");
-            return promptUser();
-        })
-    })       
-};
-
-const addEmployee = (firstName, lastName, empRole, managerName) => {
-    // find manager id from manager name
-    // const managerId = ...
-    db.execute(
-        `INSERT INTO employees(first_name, last_name, emp_role, manager_id) VALUES (${firstName},${lastName},${empRole},${managerId});`,
-        (err, res) => {
-            if (err) throw err;
-            console.log(`${firstName} ${lastName} added to Employees!`);
-            console.log("=========================");
-            return promptUser();
-        }
-    )
-// enter the follow and it is entered to the DB
-    // first name
-    // last name
-    // role
-    // manager
-};
-
-const updateEmployeeRole = (empFullName, empRole,) => {
-    const index = empFullName.indexOf(" ");
-    const firstName =empFullName.slice(0,index); 
-    const lastName = empFullName.slice(index+1,empFullName.length);
-    db.execute(
-        `UPDATE employees SET emp_role=${empRole} WHERE first_name=${firstName};`,
-        (err, res) => {
-            if (err) throw err;
-            console.log("");
-            console.log("=========================");
-            console.log(`${firstName} ${lastName} added to Employees!`);
-            return promptUser();
-        }
-    )
-// prompted to select employee
-// find their new role 
-// then this information is updated in the DB
-};
-
-promptUser();
-
-
-
