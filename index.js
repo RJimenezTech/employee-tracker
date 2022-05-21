@@ -13,24 +13,29 @@ let rolesArray = [];
 let departmentsArray = [];
 let employeesArray = [];
 
-db.connect( err => {
-    if (err) {
-        console.log("error connecting - " + err.message);
-        return;
-    }
-    db.query(`SELECT * FROM roles`, (err , res) => {
-        rolesArray = res.map(role => ({name: role.role_title, value: role.role_id}))
-    });
-    db.query(`SELECT * FROM departments`, (err, res) => {
-        departmentsArray = res.map(dep => ({name: dep.dep_name, value: dep.dep_id}))
-    });
-    db.query(`SELECT * FROM employees`, (err, res) => {
-        employeesArray = res.map(emp => ({name: `${emp.first_name} ${emp.last_name}`, value: emp.emp_id}))
-    });
-    promptUser();
-});
+const genArrays = () => {
+    db.connect( err => {
+        if (err) {
+            console.log("error connecting - " + err.message);
+            return;
+        }
+        db.query(`SELECT * FROM roles`, (err , res) => {
+            rolesArray = res.map(role => ({name: role.role_title, value: role.role_id}))
+        });
+        db.query(`SELECT * FROM departments`, (err, res) => {
+            departmentsArray = res.map(dep => ({name: dep.dep_name, value: dep.dep_id}))
+        });
+        db.query(`SELECT * FROM employees`, (err, res) => {
+            employeesArray = res.map(emp => ({name: `${emp.first_name} ${emp.last_name}`, value: emp.emp_id}))
+        });
+    })
+    // console.log(rolesArray);
+    // console.log(departmentsArray);
+    // console.log(employeesArray);
+}
 /* ====== MAIN MENU ====== */
-const promptUser = () => {
+async function promptUser(){
+    await genArrays();
     return inquirer.prompt([
         {
             type: "list",
@@ -74,7 +79,7 @@ const promptUser = () => {
 /* ====== VIEW TABLE CONTENTS FUNCTIONS ====== */
 const viewDepartments = () => {
     db.execute(
-        'SELECT dep_id AS ID, dep_name AS name FROM departments',
+        'SELECT dep_id AS ID, dep_name AS NAME FROM departments',
         (err, res) => {
             if (err) throw err;
             console.log("");
@@ -113,15 +118,17 @@ const viewEmployees = () => {
 };
 /*====== ADD DEPARTMENT FUNCTIONS ======*/
 const addDepartment = (deptName) => {
-    db.execute(
+    db.query(
         `INSERT INTO departments(dep_name) VALUES (?);`,[deptName],
         (err, res) => {
             if (err) throw err;
             console.log(`${deptName} added to Departments!`);
             console.log("=========================");
+            genArrays();
             promptUser();
         }
     )
+    
 };
 const promptAddDepartment = () => {
     inquirer
@@ -142,8 +149,10 @@ const addRole = (roleTitle, roleSalary, department) => {
     const params = [roleTitle, roleSalary, department]
     db.query(sql, params, (err, res) => {
         if (err) throw err;
+
         console.log(`${roleTitle} added to Roles!`);
         console.log("=========================");
+        genArrays();
         promptUser();    
     })
 };
@@ -178,6 +187,7 @@ const addEmployee = (firstName, lastName, roleId, manager_id) => {
     db.execute(sql, params,(err, res) => {
         if (err) throw err; 
         console.log(`${firstName} ${lastName} was added to employees!`);
+        genArrays();
         promptUser();
     });
     
@@ -197,20 +207,19 @@ const promptAddEmployee = () => {
             },
             {
                 type: "list",
-                name: "roleTitle",
-                message: "What is the employee's title?",
-                choices: rolesArray
-            },
-            {
-                type: "list",
                 name: "manager",
                 message: "Who is the employee's manager?",
                 choices: employeesArray
+            },
+            {
+                type: "list",
+                name: "roleTitle",
+                message: "What is the employee's title?",
+                choices: rolesArray
             }
+            
         ])
         .then(empData => {
-            console.log(empData.roleTitle)
-            console.log(empData.manager)
             addEmployee(empData.firstName, empData.lastName, empData.roleTitle, empData.manager);
         })
 };
@@ -224,10 +233,11 @@ const updateEmployeeRole = (empId, role_id) => {
             console.log("");
             console.log("=========================");
             console.log(`Employee role update!`);
+            genArrays();  
             promptUser();
         }
     )
-    
+      
 };
 
 const promptUpdateEmployee = () => {
@@ -251,3 +261,5 @@ const promptUpdateEmployee = () => {
 
 }
 
+// genArrays();
+promptUser();
