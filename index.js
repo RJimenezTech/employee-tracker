@@ -1,4 +1,4 @@
-const express = require('express');
+// const express = require('express');
 const inquirer = require('inquirer');
 const cTable = require('console.table');
 const db = require('./db/connection');
@@ -6,6 +6,9 @@ const db = require('./db/connection');
 const { append } = require('express/lib/response');
 const { end } = require('./db/connection');
 
+/* ====== INITIALIZE TABLE VIEWS ====== */
+/* This is for access to arrays of departments, roles, 
+and employees for later use */
 let rolesArray = [];
 let departmentsArray = [];
 let employeesArray = [];
@@ -26,7 +29,7 @@ db.connect( err => {
     });
     promptUser();
 });
-
+/* ====== MAIN MENU ====== */
 const promptUser = () => {
     return inquirer.prompt([
         {
@@ -68,7 +71,58 @@ const promptUser = () => {
         }
     })
 };
-
+/* ====== VIEW TABLE CONTENTS FUNCTIONS ====== */
+const viewDepartments = () => {
+    db.execute(
+        'SELECT dep_id AS ID, dep_name AS name FROM departments',
+        (err, res) => {
+            if (err) throw err;
+            console.log("");
+            console.log("=========================")
+            console.log("DEPARTMENTS")
+            console.table(res);
+            promptUser();
+        }
+    )
+};
+const viewRoles = () => {
+    db.execute(
+        'SELECT roles.role_id AS ID, roles.role_title AS TITLE, roles.role_salary AS SALARY, departments.dep_name AS DEPARTMENT FROM roles INNER JOIN departments ON roles.department_id=departments.dep_id',
+        (err, res) => {
+            if (err) throw err;
+            console.log("");
+            console.log("=========================")
+            console.log("ROLES");
+            console.table(res);
+            promptUser();
+        }
+    )
+};
+const viewEmployees = () => {
+    db.execute(
+        'SELECT e.emp_id AS ID, e.first_name AS FIRST, e.last_name AS LAST, roles.role_title AS TITLE, departments.dep_name AS DEPARTMENT, m.first_name AS MANAGER FROM employees e JOIN roles ON e.emp_role=roles.role_id JOIN departments ON roles.department_id=departments.dep_id LEFT JOIN employees m ON m.emp_id=e.manager_id ORDER BY e.emp_id',
+        (err, res) => {
+            if (err) throw err;
+            console.log("");
+            console.log("=========================");
+            console.log("EMPLOYEES");
+            console.table(res);
+            promptUser();
+        }
+    )
+};
+/*====== ADD DEPARTMENT FUNCTIONS ======*/
+const addDepartment = (deptName) => {
+    db.execute(
+        `INSERT INTO departments(dep_name) VALUES (?);`,[deptName],
+        (err, res) => {
+            if (err) throw err;
+            console.log(`${deptName} added to Departments!`);
+            console.log("=========================");
+            promptUser();
+        }
+    )
+};
 const promptAddDepartment = () => {
     inquirer
         .prompt([
@@ -82,18 +136,7 @@ const promptAddDepartment = () => {
         addDepartment(departmentData.departmentInput);
     })
 };
-
-const addDepartment = (deptName) => {
-    db.execute(
-        `INSERT INTO departments(dep_name) VALUES (?);`,[deptName],
-        (err, res) => {
-            if (err) throw err;
-            console.log(`${deptName} added to Departments!`);
-            console.log("=========================");
-            promptUser();
-        }
-    )
-};
+/*====== ADD ROLE FUNCTIONS ======*/
 const addRole = (roleTitle, roleSalary, department) => {
     const sql = `INSERT INTO roles(role_title, role_salary, department_id) VALUES (?,?,?)`;
     const params = [roleTitle, roleSalary, department]
@@ -103,7 +146,6 @@ const addRole = (roleTitle, roleSalary, department) => {
         console.log("=========================");
         promptUser();    
     })
-      
 };
 const promptAddRole = () => {
     inquirer
@@ -129,9 +171,7 @@ const promptAddRole = () => {
         addRole(roleData.roleName, roleData.roleSalary, roleData.roleDepartment);
     })
 };
-
-
-
+/* ====== ADD EMPLOYEE FUNCTIONS ====== */
 const addEmployee = (firstName, lastName, roleId, manager_id) => {
     const sql = `INSERT INTO employees(first_name, last_name,emp_role, manager_id) VALUES (?,?,?,?)`;
     const params = [firstName,lastName,roleId,manager_id]
@@ -174,7 +214,7 @@ const promptAddEmployee = () => {
             addEmployee(empData.firstName, empData.lastName, empData.roleTitle, empData.manager);
         })
 };
-
+/* ====== UPDATE EMPLOYEE ROLE FUNCTIONS ====== */
 const updateEmployeeRole = (empId, role_id) => {
     db.execute(
         `UPDATE employees SET emp_role=? WHERE emp_id=?;`,
@@ -211,47 +251,3 @@ const promptUpdateEmployee = () => {
 
 }
 
-const viewDepartments = () => {
-    db.execute(
-        'SELECT dep_id AS ID, dep_name AS name FROM departments',
-        (err, res) => {
-            if (err) throw err;
-            console.log("");
-            console.log("=========================")
-            console.log("DEPARTMENTS")
-            console.table(res);
-            promptUser();
-        }
-    )
-    
-};
-
-const viewRoles = () => {
-    db.execute(
-        'SELECT roles.role_id AS ID, roles.role_title AS TITLE, roles.role_salary AS SALARY, departments.dep_name AS DEPARTMENT FROM roles INNER JOIN departments ON roles.department_id=departments.dep_id',
-        (err, res) => {
-            if (err) throw err;
-            console.log("");
-            console.log("=========================")
-            console.log("ROLES");
-            console.table(res);
-            promptUser();
-        }
-    )
-    
-};
-
-const viewEmployees = () => {
-    db.execute(
-        'SELECT e.emp_id AS ID, e.first_name AS FIRST, e.last_name AS LAST, roles.role_title AS TITLE, departments.dep_name AS DEPARTMENT, m.first_name AS MANAGER FROM employees e JOIN roles ON e.emp_role=roles.role_id JOIN departments ON roles.department_id=departments.dep_id LEFT JOIN employees m ON m.emp_id=e.manager_id ORDER BY e.emp_id',
-        (err, res) => {
-            if (err) throw err;
-            console.log("");
-            console.log("=========================");
-            console.log("EMPLOYEES");
-            console.table(res);
-            promptUser();
-        }
-    )
-    
-};
