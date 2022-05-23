@@ -17,9 +17,7 @@
   
   ## Installation
   
-  Clone the github repository here. After installing dependencies and resetting MySQL credentials, you will need to seed the data. Through the MySQL CLI, enter the following commands: "USE organization;" "source db/db.sql" "source db/schema.sql" "source db/seeds.sql". 
-  
-  After the database is initialized and seed data has been input, run the application using "node index.js"
+  Clone the github repository here. After installing dependencies and resetting MySQL credentials, you will need to seed the data. Through the MySQL CLI, by enter "mysql -u root -p" and enter your MySQL credentials. From the MySQL CLI, enter the following commands: "source db/db.sql" "source db/schema.sql" "source db/seeds.sql". Then enter "\q" to return to the terminal. The seed data should be initialized, so to run the application enter "node index.js" in the temrinal.
   
   ## Usage
   
